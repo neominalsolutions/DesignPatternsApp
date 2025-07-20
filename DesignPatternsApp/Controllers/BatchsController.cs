@@ -1,6 +1,8 @@
 ﻿using DesignPatternsApp.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CSharp.RuntimeBinder;
+using Microsoft.OpenApi.Expressions;
 using static DesignPatternsApp.Models.JobParameters;
 
 namespace DesignPatternsApp.Controllers
@@ -94,11 +96,15 @@ namespace DesignPatternsApp.Controllers
         var processor1 = new PersonItemProcessor();
         var writer1 = new XMLItemWriter<Person>("persons.xml");
 
+        // Fault Tolerant Step
         IStep personStep = stepBuilderFactory2
           .CreateStep("personStep")
           .Reader(reader1)
           .Processor(processor1)
           .Writer(writer1)
+          .FaultTolerant()
+          .Retry(3) // 3 Errors
+          .SkipError<RuntimeBinderException>()
           .Build();
 
         var jobListener = new JobLoggerListener();

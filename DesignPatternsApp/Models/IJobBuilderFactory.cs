@@ -70,74 +70,7 @@ namespace DesignPatternsApp.Models
    * 
    */
 
-  public interface IJobBuilder
-  {
-    IJob Build();
-    IJobBuilder Start(IStep step);
-
-    IJobBuilder Next(IStep step);
-
-    IJobBuilder AddListener(IJobListener listener);
-
-  }
-
-  public class JobBuilder : IJobBuilder
-  {
-
-    private IJob _job;
-
-    public JobBuilder(string jobName)
-    {
-      _job = new Job(jobName);
-    }
-
-    public IJobBuilder AddListener(IJobListener listener)
-    {
-      _job.AddListener(listener);
-      return this;
-    }
-
-    public IJob Build()
-    {
-      return _job;
-    }
-
-    public IJobBuilder Next(IStep step)
-    {
-      if (this._job.GetSteps().Any())
-      {
-        this._job.AddStep(step);
-        return this;
-      }
-      else
-      {
-        throw new ArgumentException("Start Step Bulunamadı");
-      }
-      
-    }
-
-    public IJobBuilder Start(IStep step)
-    {
-      this._job.AddStep(step);
-      return this;
-    }
-
-
-  }
-  public interface IJobBuilderFactory
-  {
-    IJobBuilder CreateJob(string jobName);
-
-  }
-
-  public class SimpleJobBuilderFactory : IJobBuilderFactory
-  {
-    public IJobBuilder CreateJob(string jobName)
-    {
-      return new JobBuilder(jobName);
-    }
-  }
-
+  #region Job
 
   public interface IJob
   {
@@ -170,17 +103,17 @@ namespace DesignPatternsApp.Models
     public Job(string jobName)
     {
       JobName = jobName;
-     
+
     }
 
     public JobExecution Execute(JobParameters parameters)
     {
 
-    
+
       var jobExecution = new JobExecution(this, parameters);
       NotifyBeforeJob(jobExecution);  // İşlem başlamadan önce dinleyicilere haber ver
       jobExecution.Start(); // InProgress State
- 
+
 
       try
       {
@@ -244,7 +177,7 @@ namespace DesignPatternsApp.Models
       foreach (var listener in _listeners)
       {
         listener.AfterJob(jobExecution);
-       
+
       }
     }
 
@@ -257,6 +190,88 @@ namespace DesignPatternsApp.Models
       }
     }
   }
+
+  #endregion
+
+  #region JobBuilder
+  public interface IJobBuilder
+  {
+    IJob Build();
+    IJobBuilder Start(IStep step);
+
+    IJobBuilder Next(IStep step);
+
+
+    IJobBuilder AddListener(IJobListener listener);
+
+  }
+
+  public class JobBuilder : IJobBuilder
+  {
+
+    private IJob _job;
+
+    public JobBuilder(string jobName)
+    {
+      _job = new Job(jobName);
+    }
+
+    public IJobBuilder AddListener(IJobListener listener)
+    {
+      _job.AddListener(listener);
+      return this;
+    }
+
+    public IJob Build()
+    {
+      return _job;
+    }
+
+    public IJobBuilder Next(IStep step)
+    {
+      if (this._job.GetSteps().Any())
+      {
+        this._job.AddStep(step);
+        return this;
+      }
+      else
+      {
+        throw new ArgumentException("Start Step Bulunamadı");
+      }
+      
+    }
+
+    public IJobBuilder Start(IStep step)
+    {
+      this._job.AddStep(step);
+      return this;
+    }
+
+
+  }
+
+
+  #endregion
+
+  #region JobBuilderFactory
+
+  public interface IJobBuilderFactory
+  {
+    IJobBuilder CreateJob(string jobName);
+
+  }
+
+  public class SimpleJobBuilderFactory : IJobBuilderFactory
+  {
+    public IJobBuilder CreateJob(string jobName)
+    {
+      return new JobBuilder(jobName);
+    }
+  }
+
+  #endregion
+
+  #region JobExecution
 
   public class JobExecution
   {
@@ -361,6 +376,11 @@ namespace DesignPatternsApp.Models
     }
   }
 
+  #endregion
+
+  #region StatePattern
+
+
   /* STATE DESING PATTERN */
   public interface IJobState
   {
@@ -405,8 +425,11 @@ namespace DesignPatternsApp.Models
     }
   }
 
-  // OBSERVABLE PATTERN
 
+  #endregion
+
+  #region ObserverPattern
+  // OBSERVABLE PATTERN
   public interface IJobListener
   {
     void BeforeJob(JobExecution jobExecution);
@@ -439,5 +462,9 @@ namespace DesignPatternsApp.Models
       Console.WriteLine($"Job '{jobExecution.Job.JobName}' has failed and requires attention.");
     }
   }
+
+  #endregion
+
+
 
 }

@@ -40,52 +40,82 @@ namespace DesignPatternsApp.Models
 
   -------------------------------------------------------------------------------------------------------------
 
+  ----------------------------------------------- COMMAND PATTERN --------------------------------------------------------------------
+
+  Command Pattern sayesinde, bir işlemi (komutu) bir nesneye dönüştürürsünüz ve bu komut, gerektiğinde çalıştırılır. Bu da işlemleri daha esnek ve bağımsız hale getirir.
+
+
+  Client: StepBuilder sınıfı. Burada komutları oluşturuyor ve adımı (Step) yapılandırıyorsunuz
+  Invoker: Step, komutları çalıştıran sınıfı temsil eder. Invoker'ın görevi, komutları sırayla çalıştırmaktır.
+  Receiver, komutları gerçekleştiren sınıfı temsil eder. (RetryCommand,SkipErrorCommand)
+  Command:   ICommand arayüzü, komutları tanımlar.
+  -----------------------------------------------------------------------------------------------------------------------------------
 
    * 
    * 
    */
 
+  #region stepExecution
 
+
+  public class StepExecution
+  {
+    public string StepName { get; set; }
+    public BatchStatus Status { get; set; }
+
+    public StepExecution(string stepName)
+    {
+      StepName = stepName;
+      Status = BatchStatus.InProgress;
+    }
+  }
 
   public enum BatchStatus
   {
     Start,
     Complete,
     Failed,
-    InProgress
+    InProgress,
+    Skipped
   }
 
-  public class StepExecution
-  {
-    public string StepName { get; set; }
-    public BatchStatus Status { get; set; }
-    //public ExecutionContext ExecutionContext { get; set; }
+  #endregion
 
-    public StepExecution(string stepName)
-    {
-      StepName = stepName;
-      Status = BatchStatus.InProgress;
-      //ExecutionContext = new ExecutionContext();  // Her adım için ExecutionContext başlatıyoruz
-    }
+  #region Step
+
+  public interface IStep
+  {
+    string StepName { get; }
+
+    void Execute(StepExecution stepExecution);
   }
 
   public class Step<TModel> : IStep
   {
     public string StepName { get; private set; }
 
-
-
     public IItemReader<TModel> ItemReader { get; private set; }
     public IItemProcessor<TModel> Processor { get; private set; }
 
     public IItemWriter<TModel> Writer { get; private set; }
 
-    public Step(string stepName, IItemReader<TModel> reader, IItemProcessor<TModel> processor, IItemWriter<TModel> writer)
+    public int RetryCount { get; private set; }
+
+    public bool IsFaultTolerant { get; private set; }
+
+    public List<ICommand> Commands { get; private set; }
+
+
+
+    public Step(string stepName, IItemReader<TModel> reader, IItemProcessor<TModel> processor, IItemWriter<TModel> writer, bool isfaultTolerant, List<ICommand> commands)
     {
       this.StepName = stepName;
       this.ItemReader = reader;
       this.Writer = writer;
       this.Processor = processor;
+      this.Commands = commands;
+      this.IsFaultTolerant = isfaultTolerant;
+
     }
 
 
@@ -93,6 +123,8 @@ namespace DesignPatternsApp.Models
     {
       try
       {
+
+
         // İşlem başlatıldı
         stepExecution.Status = BatchStatus.InProgress;
 
@@ -116,7 +148,9 @@ namespace DesignPatternsApp.Models
             }
             catch
             {
-              stepExecution.Status = BatchStatus.Failed; // İşlem sırasında hata oldu
+              stepExecution.Status = BatchStatus.Failed;
+              // Hata durumunda Hata durum yönetim kodlarını çalıştır
+              Commands.ForEach(c => c.Execute(stepExecution));
             }
           }
           else
@@ -132,19 +166,21 @@ namespace DesignPatternsApp.Models
       }
       catch (Exception ex)
       {
-        // Hata oluşursa, adımı başarısız olarak işaretle ve hata yönetimini yap
-        Console.WriteLine($"Error during step execution: {ex.Message}");
-        stepExecution.Status = BatchStatus.Failed;
+        if (IsFaultTolerant)
+        {
+          stepExecution.Status = BatchStatus.Failed;
+          // Hata durumunda Hata durum yönetim kodlarını çalıştır
+          Commands.ForEach(c => c.Execute(stepExecution));
+        }
+
       }
     }
   }
 
-  public interface IStep
-  {
-    string StepName { get; }
+  #endregion
 
-    void Execute(StepExecution stepExecution);
-  }
+  #region stepBuilder
+
 
   public interface IStepBuilder<TModel>
   {
@@ -152,20 +188,11 @@ namespace DesignPatternsApp.Models
     IStepBuilder<TModel> Reader(IItemReader<TModel> itemReader);
     IStepBuilder<TModel> Processor(IItemProcessor<TModel> itemProcessor);
     IStepBuilder<TModel> Writer(IItemWriter<TModel> itemWriter);
-  }
- 
-  public interface IStepBuilderFactory<TModel>
-  {
-    IStepBuilder<TModel> CreateStep(string stepName);
 
-  }
+    IStepBuilder<TModel> Retry(int retryCount); // hata durumunda kaç kez tekrarlı işlem yapacağı.
+    IStepBuilder<TModel> SkipError<ExceptionClass>() where ExceptionClass : Exception; // Kaç adet hataya kadar hatalı kodu atlatacağı
 
-  public class SimpleStepBuilderFactory<TModel> : IStepBuilderFactory<TModel>
-  {
-    public IStepBuilder<TModel> CreateStep(string stepName)
-    {
-      return new StepBuilder<TModel>(stepName);
-    }
+    IStepBuilder<TModel> FaultTolerant();
   }
 
 
@@ -175,6 +202,10 @@ namespace DesignPatternsApp.Models
     private IItemProcessor<TModel> _itemProcessor;
     private IItemReader<TModel> _itemReader;
     private IItemWriter<TModel> _itemWriter;
+    private Exception skipException;
+    private bool isFaultTolerant;
+    private List<ICommand> _commands = new List<ICommand>();
+
 
     public StepBuilder(string stepName)
     {
@@ -183,7 +214,15 @@ namespace DesignPatternsApp.Models
 
     public IStep Build()
     {
-      return new Step<TModel>(_stepName, _itemReader, _itemProcessor, _itemWriter);
+     
+
+      return new Step<TModel>(_stepName, _itemReader, _itemProcessor, _itemWriter,isFaultTolerant, _commands);
+    }
+
+    public IStepBuilder<TModel> FaultTolerant()
+    {
+      isFaultTolerant = true;
+      return this;
     }
 
     public IStepBuilder<TModel> Processor(IItemProcessor<TModel> itemProcessor) 
@@ -198,10 +237,127 @@ namespace DesignPatternsApp.Models
       return this;
     }
 
+    public IStepBuilder<TModel> Retry(int retryCount)
+    {
+      if (isFaultTolerant)
+        _commands.Add(new RetryCommand(retryCount));
+      
+      return this;
+    }
+
+
+    public IStepBuilder<TModel> SkipError<ExceptionClass>() where ExceptionClass : Exception
+    {
+      if (isFaultTolerant)
+        _commands.Add(new SkipErrorCommand<ExceptionClass>());
+      
+      
+      return this;
+      
+    }
+
     public IStepBuilder<TModel> Writer(IItemWriter<TModel> itemWriter)
     {
       _itemWriter = itemWriter;
       return this;
     }
   }
+
+  #endregion
+
+  #region stepBuilderFactory
+
+  public interface IStepBuilderFactory<TModel>
+  {
+    IStepBuilder<TModel> CreateStep(string stepName);
+
+  }
+
+  public class SimpleStepBuilderFactory<TModel> : IStepBuilderFactory<TModel>
+  {
+    public IStepBuilder<TModel> CreateStep(string stepName)
+    {
+      return new StepBuilder<TModel>(stepName);
+    }
+  }
+
+  #endregion
+
+  #region CommandPattern
+
+  // COMMAND PATTERN START
+
+  public interface ICommand
+  {
+    void Execute(StepExecution stepExecution);
+  }
+
+  public class RetryCommand : ICommand
+  {
+    private readonly int _maxRetries;
+    private int _currentRetry = 0;
+
+    public RetryCommand(int retryCount)
+    {
+      _maxRetries = retryCount;
+    }
+
+    public void Execute(StepExecution stepExecution)
+    {
+      // Retry mekanizması
+      while (_currentRetry < _maxRetries)
+      {
+        try
+        {
+          Console.WriteLine($"Tekrar deneme {_currentRetry + 1}/{_maxRetries}");
+          // Burada işlem yapılır ve başarılı olursa döngü sonlanır
+          stepExecution.Status = BatchStatus.Complete;
+          return;
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine($"Hata: {ex.Message}");
+          _currentRetry++;
+          if (_currentRetry >= _maxRetries)
+          {
+            stepExecution.Status = BatchStatus.Failed;
+          }
+        }
+      }
+    }
+  }
+
+  public class SkipErrorCommand<TException> : ICommand where TException:class
+  {
+   
+
+    public void Execute(StepExecution stepExecution)
+    {
+      try
+      {
+        // Eğer işlemde hata varsa atla
+        if (stepExecution.Status == BatchStatus.Failed)
+        {
+          Console.WriteLine("Bir hata oluştu, step atlatıyoruz " + stepExecution.StepName);
+          stepExecution.Status = BatchStatus.Skipped;  // Atlatma durumuna geç
+        }
+        else
+        {
+          // Eğer hata yoksa, normal işlemi devam ettir
+          Console.WriteLine("İşlem başarılı, devam ediyor...");
+          stepExecution.Status = BatchStatus.Complete;
+        }
+      }
+      catch (Exception ex)
+      {
+        // Hata olursa da atlatma yapılır
+        Console.WriteLine($"Skip Command Hata: {ex.Message}");
+        stepExecution.Status = BatchStatus.Skipped;
+      }
+    }
+  }
+
+  // COMMAND PATTERN END
+
+  #endregion
 }

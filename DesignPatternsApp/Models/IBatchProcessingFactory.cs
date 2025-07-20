@@ -69,6 +69,8 @@ namespace DesignPatternsApp.Models
 
   // ABSTRACT FACTORY START
 
+  #region BatchProcessingAbstractFactory
+
   public interface IItemReader<TModel>
   {
     List<TModel> Read();
@@ -414,252 +416,264 @@ namespace DesignPatternsApp.Models
   }
 
 
+  // ABSTRACT FACTORY END
+  #endregion
 
- 
-}
-
-
-// ABSTRACT FACTORY END
+  #region DecoratorPattern
 
 
-// DECORATOR PATTERNS START
+  // DECORATOR PATTERNS START
 
-public abstract class ItemProcessorDecorator<TModel> : IItemProcessor<TModel>
-{
-  protected IItemProcessor<TModel> _decoratedProcessor;
-
-  public ItemProcessorDecorator(IItemProcessor<TModel> decoratedProcessor)
+  public abstract class ItemProcessorDecorator<TModel> : IItemProcessor<TModel>
   {
-    _decoratedProcessor = decoratedProcessor;
-  }
+    protected IItemProcessor<TModel> _decoratedProcessor;
 
-  public virtual TModel Process(TModel item)
-  {
-    return _decoratedProcessor.Process(item);  // Temel işleme devam et
-  }
-}
-
-// Nesne içerisindeki String alanların validasyonlarını yapar.
-public class StringFieldItemDecorator<TModel> : IItemProcessor<TModel>
-{
-  private readonly IItemProcessor<TModel> _decoratedProcessor;
-
-  public StringFieldItemDecorator(IItemProcessor<TModel> decoratedProcessor)
-  {
-    _decoratedProcessor = decoratedProcessor;
-  }
-
-  public TModel Process(TModel item)
-  {
-    // Reflection ile string tipindeki özellikleri kontrol et
-    ValidateStrings(item);
-
-    // Temel işleme işlemi
-    return _decoratedProcessor.Process(item);
-  }
-
-  private void ValidateStrings(TModel item)
-  {
-    var properties = typeof(TModel).GetProperties()
-                        .Where(p => p.PropertyType == typeof(string));
-
-    foreach (var property in properties)
+    public ItemProcessorDecorator(IItemProcessor<TModel> decoratedProcessor)
     {
-      var value = (string)property.GetValue(item);
+      _decoratedProcessor = decoratedProcessor;
+    }
 
-      // Null, Empty veya WhiteSpace kontrolü
-      if (string.IsNullOrWhiteSpace(value))
+    public virtual TModel Process(TModel item)
+    {
+      return _decoratedProcessor.Process(item);  // Temel işleme devam et
+    }
+  }
+
+  // Nesne içerisindeki String alanların validasyonlarını yapar.
+  public class StringFieldItemDecorator<TModel> : IItemProcessor<TModel>
+  {
+    private readonly IItemProcessor<TModel> _decoratedProcessor;
+
+    public StringFieldItemDecorator(IItemProcessor<TModel> decoratedProcessor)
+    {
+      _decoratedProcessor = decoratedProcessor;
+    }
+
+    public TModel Process(TModel item)
+    {
+      // Reflection ile string tipindeki özellikleri kontrol et
+      ValidateStrings(item);
+
+      // Temel işleme işlemi
+      return _decoratedProcessor.Process(item);
+    }
+
+    private void ValidateStrings(TModel item)
+    {
+      var properties = typeof(TModel).GetProperties()
+                          .Where(p => p.PropertyType == typeof(string));
+
+      foreach (var property in properties)
       {
-        throw new ArgumentException($"Property '{property.Name}' cannot be null, empty, or whitespace.");
+        var value = (string)property.GetValue(item);
+
+        // Null, Empty veya WhiteSpace kontrolü
+        if (string.IsNullOrWhiteSpace(value))
+        {
+          throw new ArgumentException($"Property '{property.Name}' cannot be null, empty, or whitespace.");
+        }
       }
     }
   }
-}
-
-
-public class NumericFieldItemDecorator<TModel> : IItemProcessor<TModel>
-{
-  private readonly IItemProcessor<TModel> _decoratedProcessor;
-
-  public NumericFieldItemDecorator(IItemProcessor<TModel> decoratedProcessor)
+  public class NumericFieldItemDecorator<TModel> : IItemProcessor<TModel>
   {
-    _decoratedProcessor = decoratedProcessor;
-  }
+    private readonly IItemProcessor<TModel> _decoratedProcessor;
 
-  public TModel Process(TModel item)
-  {
-    // Reflection ile sayısal alanları kontrol et
-    ValidateNumericFields(item);
-
-    // Temel işleme işlemi
-    return _decoratedProcessor.Process(item);
-  }
-
-  private void ValidateNumericFields(TModel item)
-  {
-    // Sayısal özellikleri al
-    var properties = typeof(TModel).GetProperties()
-                        .Where(p => IsNumericType(p.PropertyType));
-
-    foreach (var property in properties)
+    public NumericFieldItemDecorator(IItemProcessor<TModel> decoratedProcessor)
     {
-      var value = property.GetValue(item);
+      _decoratedProcessor = decoratedProcessor;
+    }
 
-      if (value == null || Convert.ToDecimal(value) <= 0)
+    public TModel Process(TModel item)
+    {
+      // Reflection ile sayısal alanları kontrol et
+      ValidateNumericFields(item);
+
+      // Temel işleme işlemi
+      return _decoratedProcessor.Process(item);
+    }
+
+    private void ValidateNumericFields(TModel item)
+    {
+      // Sayısal özellikleri al
+      var properties = typeof(TModel).GetProperties()
+                          .Where(p => IsNumericType(p.PropertyType));
+
+      foreach (var property in properties)
       {
-        throw new ArgumentException($"Property '{property.Name}' must be a valid positive numeric value.");
+        var value = property.GetValue(item);
+
+        if (value == null || Convert.ToDecimal(value) <= 0)
+        {
+          throw new ArgumentException($"Property '{property.Name}' must be a valid positive numeric value.");
+        }
+      }
+
+    }
+
+    // Sayısal bir tip mi diye kontrol eder
+    private bool IsNumericType(Type type)
+    {
+      return type == typeof(int) || type == typeof(double) || type == typeof(decimal)
+             || type == typeof(float) || type == typeof(long);
+    }
+
+  }
+
+
+
+  // DECORATOR PATTERN END
+
+  #endregion
+
+  #region ProxyPattern
+
+  // Proxy PATTERN START
+  public class CsvItemReaderProxy<TModel> : IItemReader<TModel>
+  {
+    private CsvItemReader<TModel> _realReader;  // Gerçek veri okuma işlemi yapan nesne
+
+    public CsvItemReaderProxy(CsvItemReader<TModel> realReader)
+    {
+      _realReader = realReader;
+    }
+
+    // Dosya okumadan önce dosyanın var olup olmadığını kontrol ettikten sonra realReader nesnesini tetikliyor
+    public List<TModel> Read()
+    {
+      List<TModel> items = new List<TModel>();
+
+      if (FileExists(_realReader.FileName))
+      {
+        items = _realReader.Read();
+        Console.WriteLine("Dosya Okuma İşlemi Başarılı Oldu. Csv Proxy");
+
+        return items;
+      }
+      else
+      {
+        throw new FileNotFoundException();
+      }
+
+    }
+
+    private bool FileExists(string fileName)
+    {
+      var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+
+      return Path.Exists(filePath);
+    }
+
+
+  }
+
+
+  // Proxy Pattern END
+
+  #endregion
+
+  #region AdapterPattern
+
+  // ADAPTER PATTERN START
+
+  // Target -> IItemReader<TModel>
+  // Adapter -> ExternalCsvItemReaderAdapter
+  // Adaptee -> ExternalCsvItemReader (Adapte edilecek sınıf)
+
+  public class ExternalCsvItemReader<TModel>
+  {
+    private string _filename;
+
+    public ExternalCsvItemReader(string filename)
+    {
+      _filename = filename;
+    }
+
+    public List<TModel> ReadItems()
+    {
+      return new List<TModel>();
+    }
+  }
+
+  // 3prd Csv Item Reader Paketini Ana uygulamamızda kullanmak istiyorum. Performans gerekçesi ile
+  public class ExternalCsvItemReaderAdapter<TModel> : IItemReader<TModel>
+  {
+    private string _filename;
+    private ExternalCsvItemReader<TModel> reader;
+
+    public ExternalCsvItemReaderAdapter(string fileName)
+    {
+      _filename = fileName;
+      reader = new ExternalCsvItemReader<TModel>(_filename);
+    }
+    public List<TModel> Read()
+    {
+      return reader.ReadItems();
+    }
+  }
+
+  // ADAPTER PATTERN END
+
+  #endregion
+
+  #region MediatorPattern
+
+  // MEDIATOR START
+
+  // Component A
+  public interface IJobRequest
+  {
+    string JobName { get; set; }
+    Dictionary<string, string> Parameters { get; set; }
+
+  }
+
+  // Mediator Interface
+  public interface IJobMediator
+  {
+    void ExecuteJob(IJobRequest jobRequest);
+  }
+
+  // Component B -> A ile B haberleşecek
+  public interface IJobExecutorHandler
+  {
+    void Execute(IJobRequest jobRequest);
+  }
+
+  // Concrete Mediator ise Mediator üzerinden Component A ile Component B arasındaki ilişkiyi sağlar.
+  public class JobMediator : IJobMediator
+  {
+    private readonly Dictionary<string, IJobExecutorHandler> _jobHandlers;
+
+    public JobMediator()
+    {
+      _jobHandlers = new Dictionary<string, IJobExecutorHandler>();
+    }
+
+    // Job türünü kaydeder
+    public void RegisterJobHandler(string jobName, IJobExecutorHandler handler)
+    {
+      _jobHandlers[jobName] = handler;
+    }
+
+    public void ExecuteJob(IJobRequest jobRequest)
+    {
+      if (_jobHandlers.ContainsKey(jobRequest.JobName))
+      {
+        var handler = _jobHandlers[jobRequest.JobName];
+        handler.Execute(jobRequest);
+      }
+      else
+      {
+        Console.WriteLine($"Job type {jobRequest.JobName} not found.");
       }
     }
-
-  }
-
-  // Sayısal bir tip mi diye kontrol eder
-  private bool IsNumericType(Type type)
-  {
-    return type == typeof(int) || type == typeof(double) || type == typeof(decimal)
-           || type == typeof(float) || type == typeof(long);
   }
 
 }
 
-// DECORATOR PATTERN END
+
+  // MEDIATOR END
 
 
-// Proxy PATTERN START
-public class CsvItemReaderProxy<TModel> : IItemReader<TModel>
-{
-  private CsvItemReader<TModel> _realReader;  // Gerçek veri okuma işlemi yapan nesne
-
-  public CsvItemReaderProxy(CsvItemReader<TModel> realReader)
-  {
-    _realReader = realReader;
-  }
-
-  // Dosya okumadan önce dosyanın var olup olmadığını kontrol ettikten sonra realReader nesnesini tetikliyor
-  public List<TModel> Read()
-  {
-    List<TModel> items = new List<TModel>();
-
-    if (FileExists(_realReader.FileName))
-    {
-      items = _realReader.Read();
-      Console.WriteLine("Dosya Okuma İşlemi Başarılı Oldu. Csv Proxy");
-
-      return items;
-    }
-    else
-    {
-      throw new FileNotFoundException();
-    }
-
-  }
-
-  private bool FileExists(string fileName)
-  {
-    var filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
-
-    return Path.Exists(filePath);
-  }
-
-
-}
-
-
-// Proxy Pattern END
-
-
-// ADAPTER PATTERN START
-
-// Target -> IItemReader<TModel>
-// Adapter -> ExternalCsvItemReaderAdapter
-// Adaptee -> ExternalCsvItemReader (Adapte edilecek sınıf)
-
-public class ExternalCsvItemReader<TModel>
-{
-  private string _filename;
-
-  public ExternalCsvItemReader(string filename)
-  {
-    _filename = filename;
-  }
-
-  public List<TModel> ReadItems()
-  {
-    return new List<TModel>();
-  }
-}
-
-// 3prd Csv Item Reader Paketini Ana uygulamamızda kullanmak istiyorum. Performans gerekçesi ile
-public class ExternalCsvItemReaderAdapter<TModel> : IItemReader<TModel>
-{
-  private string _filename;
-  private ExternalCsvItemReader<TModel> reader;
-
-  public ExternalCsvItemReaderAdapter(string fileName)
-  {
-    _filename = fileName;
-    reader = new ExternalCsvItemReader<TModel>(_filename);
-  }
-  public List<TModel> Read()
-  {
-    return reader.ReadItems();
-  }
-}
-
-// ADAPTER PATTERN END
-
-// MEDIATOR START
-
-
-
-// Component A
-public interface IJobRequest
-{
-   string JobName { get; set; }
-   Dictionary<string, string> Parameters { get; set; }
-
-}
-
-// Mediator Interface
-public interface IJobMediator
-{
-  void ExecuteJob(IJobRequest jobRequest);
-}
-
-// Component B -> A ile B haberleşecek
-public interface IJobExecutorHandler
-{
-  void Execute(IJobRequest jobRequest);
-}
-
-// Concrete Mediator ise Mediator üzerinden Component A ile Component B arasındaki ilişkiyi sağlar.
-public class JobMediator : IJobMediator
-{
-  private readonly Dictionary<string, IJobExecutorHandler> _jobHandlers;
-
-  public JobMediator()
-  {
-    _jobHandlers = new Dictionary<string, IJobExecutorHandler>();
-  }
-
-  // Job türünü kaydeder
-  public void RegisterJobHandler(string jobName, IJobExecutorHandler handler)
-  {
-    _jobHandlers[jobName] = handler;
-  }
-
-  public void ExecuteJob(IJobRequest jobRequest)
-  {
-    if (_jobHandlers.ContainsKey(jobRequest.JobName))
-    {
-      var handler = _jobHandlers[jobRequest.JobName];
-      handler.Execute(jobRequest);
-    }
-    else
-    {
-      Console.WriteLine($"Job type {jobRequest.JobName} not found.");
-    }
-  }
-}
-
-// MEDIATOR END
+#endregion

@@ -3,15 +3,49 @@
 namespace DesignPatternsApp.Models
 {
 
-  // StepBuilder -> Builder Design Pattern ->  Karmaşık nesneleri adım adım oluşturmak için kullanılır. Bu desen, nesnenin oluşturulma sürecini dışarıdan yönetilebilir hale getirir ve esnek bir yapı sağlar.
+  /* 
+   * 
+    ---------------------------------------------------- BUILDER PATTERN -------------------------------------
+
+    Karmaşık nesneleri adım adım oluşturmak için kullanılır. Bu desen, nesnenin oluşturulma sürecini dışarıdan yönetilebilir hale getirir ve esnek bir yapı sağlar.
+
+    Bu şekilde kodun zincir halinde adım adım kullanıması yöntemine Fluent Interface diyoruz.
+
+    StepBuilder, JobBuilder sınıfları buna bir örnektir.
 
 
-  // Fluent Interface: Kodunuzu daha okunabilir ve anlaşılır kılar. Zincirleme metodlar kullanılarak adım adım nesne oluşturulabilir.
+    -----------------------------------------------------------------------------------------------------------
 
 
-  // SimpleStepBuilderFactory ->  Factory Method Design Pattern genellikle belirli bir tek bir türde nesne oluşturmak için kullanılan basit bir yapıdır. Bu desen, nesneleri belirli bir fabrika sınıfı veya fabrika metoduyla yaratmayı sağlar.
+   -------------------------------------------- FACTORY METHDO PATTERN -----------------------------------------
 
-  // Template Method deseni, bir algoritmanın iskeletini tanımlar ve alt sınıflara algoritmanın bazı adımlarını özelleştirme fırsatı verir.Step.Execute metodu bu desenin bir örneğidir. ItemReader,ItemWriter ve Process seçimine göre Execute methodu içerisindeki algoritma özelleştirilmiştir.
+  Factory Method tasarım deseni, nesne yaratma işlemini alt sınıflara devreden ve soyut bir sınıf üzerinden yapılmasını sağlayan bir desenidir.
+
+    * Farklı Nesne Tipleri
+    * Nesne Bağımlıklarını azaltma, IoC
+    * İhtiyaca Göre Nesne Oluşturmak 
+    
+   JobBuilderFactory ve StepBuilderFactory -> Factory Method Design Pattern örneğidir.
+
+  --------------------------------------------------------------------------------------------------------------
+
+  ------------------------------------------- TEMPLATE METHOD PATTERN ------------------------------------------
+
+  Bu tasarım deseni, bir algoritmanın iskeletini tanımlar ve alt sınıflara algoritmanın bazı adımlarını özelleştirme fırsatı verir.
+
+  ItemReader,ItemWriter ve ItemProcess (CSV,XML) bazlı seçimine göre Execute methodu içerisdeki algoritma özelleşetirilebilir.  
+
+  Step sınıfındaki Execute Methodu bu tasarım desenine bir örnektir.
+
+
+  -------------------------------------------------------------------------------------------------------------
+
+
+   * 
+   * 
+   */
+
+
 
   public enum BatchStatus
   {

@@ -48,65 +48,93 @@ namespace DesignPatternsApp.Controllers
     }
 
 
-   
-
-
-    [HttpPost]
-    public IActionResult test()
+    // Colleagues -> Mediator üzerinden iletişim kuran nesnelerdir. UserJobRequest, UserJobExecutorHandler
+    public class UserJobRequest : IJobRequest
     {
+      public string JobName { get; set; }
+      public Dictionary<string, string> Parameters { get; set; }
 
-      var reader = new CsvItemReader<User>("users.csv");
-      var readerProxy = new CsvItemReaderProxy<User>(reader, "users.csv"); // Okuma öncesi dosya kontrolleri yapılır.
+      public UserJobRequest(string jobName, Dictionary<string,string> parameters)
+      {
+        JobName = jobName;
+        Parameters = parameters;
+      }
+    }
 
+    // Concrete Mediator
+    public class UserJobExecutorHandler : IJobExecutorHandler
+    {
+      public void Execute(IJobRequest jobRequest)
+      {
 
-      // Decorator Design Pattern sayesinde davranışı değiştirmeden processor sınıflarına yeni özellikler kazandırdık.
-      var processor = new UserItemProcessor();
-      var processor01 = new NumericFieldItemDecorator<User>(processor);
-      var processor02 = new StringFieldItemDecorator<User>(processor01);
-
-      var writer = new XMLItemWriter<User>("users.xml");
-
-
-      IStepBuilderFactory<User> stepBuilderFactory1 = new SimpleStepBuilderFactory<User>();
-      IStep userStep = stepBuilderFactory1
-        .CreateStep("userStep")
-        .Reader(readerProxy) // Proxy üzerinden read eder.
-        .Processor(processor02)
-        .Writer(writer)
-        .Build();
-
-      IStepBuilderFactory<Person> stepBuilderFactory2 = new SimpleStepBuilderFactory<Person>();
-      var reader1 = new CsvItemReader<Person>("persons.csv");
-      var processor1 = new PersonItemProcessor();
-      var writer1 = new XMLItemWriter<Person>("persons.xml");
-
-      IStep personStep = stepBuilderFactory2
-        .CreateStep("personStep")
-        .Reader(reader1)
-        .Processor(processor1)
-        .Writer(writer1)
-        .Build();
-
-      var jobListener = new JobLoggerListener();
+        var reader = new CsvItemReader<User>("users.csv");
+        var readerProxy = new CsvItemReaderProxy<User>(reader); // Okuma öncesi dosya kontrolleri yapılır.
 
 
-      IJobBuilderFactory jobBuilderFactory = new SimpleJobBuilderFactory();
-      IJob job = jobBuilderFactory
-        .CreateJob("userJob")
-        .Start(userStep)
-        .Next(personStep)
-        .AddListener(jobListener)
-        .Build();
+        // Decorator Design Pattern sayesinde davranışı değiştirmeden processor sınıflarına yeni özellikler kazandırdık.
+        var processor = new UserItemProcessor();
+        var processor01 = new NumericFieldItemDecorator<User>(processor);
+        var processor02 = new StringFieldItemDecorator<User>(processor01);
+
+        var writer = new XMLItemWriter<User>("users.xml");
 
 
-      JobParameters jobParameters = new JobParameters();
-      jobParameters.AddParameter("JobId", Guid.NewGuid().ToString());
-      JobLauncher.Instance.Run(job, jobParameters);
+        IStepBuilderFactory<User> stepBuilderFactory1 = new SimpleStepBuilderFactory<User>();
+        IStep userStep = stepBuilderFactory1
+          .CreateStep("userStep")
+          .Reader(readerProxy) // Proxy üzerinden read eder.
+          .Processor(processor02)
+          .Writer(writer)
+          .Build();
+
+        // ExternalCsvItemAdapter kullanımı
+        IStepBuilderFactory<Person> stepBuilderFactory2 = new SimpleStepBuilderFactory<Person>();
+        // ana yapımızı dışarıdan kullanılan bir adapter sınıfı ile çalıştırdık genel yapımızı bozmadan
+        var reader1 = new ExternalCsvItemReaderAdapter<Person>("persons.csv");
+        var processor1 = new PersonItemProcessor();
+        var writer1 = new XMLItemWriter<Person>("persons.xml");
+
+        IStep personStep = stepBuilderFactory2
+          .CreateStep("personStep")
+          .Reader(reader1)
+          .Processor(processor1)
+          .Writer(writer1)
+          .Build();
+
+        var jobListener = new JobLoggerListener();
 
 
-     
+        IJobBuilderFactory jobBuilderFactory = new SimpleJobBuilderFactory();
+        IJob job = jobBuilderFactory
+          .CreateJob(jobRequest.JobName)
+          .Start(userStep)
+          .Next(personStep)
+          .AddListener(jobListener)
+          .Build();
+
+        JobParameters jobParameters = new JobParameters();
+
+        foreach (KeyValuePair<string,string> item in jobRequest.Parameters)
+        {
+          jobParameters.AddParameter(item.Key, item.Value);
+        }
+
+        JobLauncher.Instance.Run(job, jobParameters);
+
+      }
+    }
 
 
+    [HttpPost("executeUserJob")]
+    public IActionResult UserJob([FromBody] UserJobRequest request)
+    {
+      // JobMediator -> Concrete Mediator: Mediator interface'ini uygulayan somut sınıf. 
+      // Her job tipi, farklı bir işleyici (handler) üzerinden çalıştırılır.
+      var jobMediator = new JobMediator();
+      // Job Request ve Handler'ın Register Edilmesi:
+      jobMediator.RegisterJobHandler(request.JobName, new UserJobExecutorHandler());
+      jobMediator.ExecuteJob(request);
+    
 
       return Ok();
     }

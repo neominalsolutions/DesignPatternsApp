@@ -5,18 +5,38 @@ using static DesignPatternsApp.Models.JobParameters;
 namespace DesignPatternsApp.Models
 {
 
+  // EN YAYGIN KULLANILAN 13 Tasarım Deseni Implementasyonu
+
+  // VISITOR, BRIDGE, COMMAND TASARIMINA BIR BAK
+
+  // Command'a da bir örnek verebiliriz.
 
   /*
-   *  Composite Design Pattern'i bir nesne ağacı yapısı kurarak bileşenlerin birbirleriyle ilişkisini yönetmek için kullanırız.    Burada, Job sınıfı, birden fazla IStep nesnesi içeriyor ve AddStep metodu her yeni adımı bu koleksiyona ekliyor. Bu, bir Composite ilişkisi kurar çünkü Job tekil adımları (steps) ve gruplarını aynı şekilde yönetiyor.
+   * 
+   * 
+   
+  ----------------------------------------- COMPOSITE PATTERN -------------------------------------------------
+  
+  Composite Design Pattern'i bir nesne ağacı yapısı kurarak bileşenlerin birbirleriyle ilişkisini yönetmek için kullanırız.    Burada, Job sınıfı, birden fazla IStep nesnesi içeriyor ve AddStep metodu her yeni adımı bu koleksiyona ekliyor. Bu, bir Composite ilişkisi kurar çünkü Job tekil adımları (steps) ve gruplarını aynı şekilde yönetiyor.
 
       job.AddStep(userStep);
       job.AddStep(personStep);
 
+  ------------------------------------------------------------------------------------------------------------
+
+  ------------------------------------------ STRATEGY PATTERN ---------------------------------------------
 
   CsvReader,CsvWriter, XmlReader, XmlWriter,SimpleItemProcessor ->  Strategy deseni, belirli bir işlevi bir dizi algoritma ile değiştirebilmenizi sağlar. Bir algoritmayı (veya işlem sırasını) sınıf dışındaki nesnelerde değiştirebilirsiniz. CsvReader XmlReader sınıflarındaki Read Write işlemleri Strategy tasarım desenine girer.
 
+  ------------------------------------------------------------------------------------------------------------
+
+  ----------------------------------------- SINGLETON PATTERN -------------------------------------------------
+
     JobLauncher -> Singleton tasarım deseni, sınıfın yalnızca bir örneğini oluşturmak ve bu örneği global olarak erişilebilir yapmak için kullanılır. Bunun için sınıfın kendi içinde özel bir statik nesne bulunur ve bu nesne yalnızca bir kez oluşturulur.
 
+  --------------------------------------------------------------------------------------------------------------
+
+  ----------------------------------- STATE DESIGN PATTERN-------------------------------------------------------
 
   BatchStatus -> State Pattern
   
@@ -28,10 +48,24 @@ namespace DesignPatternsApp.Models
 
   ConcreteState (CompletedState, FailedState, InProgressState): State'in somut sınıfları, her biri kendi başına belirli bir durumu temsil eder.
 
-  Job'a ait State durumlarını JobExecution sınıfı yönettiği için state değişimlerini JobExection sınıfı içerisinde yaptık
+   Job'a ait State durumlarını JobExecution sınıfı yönettiği için state değişimlerini JobExection sınıfı içerisinde yaptık
 
 
+  ----------------------------------------------------------------------------------------------------
+
+  ---------------------------------- FACADE DESIGN PATTERN ------------------------------------------------
+
+    // JobLauncher kullanımı Facade Tasarım Desenine de girer. Job ait tüm kompleks işlemleri dışarıdan job ve JobParamters değerleri ile gizler. Tüm sürecin başlatılmasını sağlar. 
+    // Bu işin çalıştırılmasında tüm karmaşık iş mantığını ve alt sistem etkileşimlerini gizler.
+    // Karmaşık işlemler için Tek Bir Erişim Noktası Sağlama, Karmaşık Sistemi Basitleştirme, Alt Sistemlerden Soyutlama
+
+  ---------------------------------------------------------------------------------------------------------
+
+  ------------------------------------------- OBSERVER PATTERN -----------------------------------------------
+ 
   JobLoggerListener ->  Observer Tasarım Deseni (Observer Design Pattern), bir nesnenin durumu değiştiğinde, bu nesneye bağlı olan tüm diğer nesnelerin otomatik olarak bilgilendirildiği bir tasarım desenidir.
+
+  -------------------------------------------------------------------------------------------------------------
 
    * 
    */
@@ -291,6 +325,8 @@ namespace DesignPatternsApp.Models
       JobExecution Run(IJob job, JobParameters parameters);
     }
 
+  
+
     public class JobLauncher : IJobLauncher
     {
       // Tek bir örnek (instance) tutan özel bir statik alan
@@ -403,8 +439,5 @@ namespace DesignPatternsApp.Models
       Console.WriteLine($"Job '{jobExecution.Job.JobName}' has failed and requires attention.");
     }
   }
-
-
-
 
 }

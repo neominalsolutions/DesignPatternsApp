@@ -239,7 +239,7 @@ namespace DesignPatternsApp.Models
           if (items != null && items.Count > 0)
           {
             // İlk item'ın property'lerinden başlık satırı yazalım
-            var properties = typeof(object).GetProperties();
+            var properties = typeof(TModel).GetProperties();
 
             // Başlıkları yazalım
             writer.WriteLine(string.Join(",", properties.Select(p => p.Name)));

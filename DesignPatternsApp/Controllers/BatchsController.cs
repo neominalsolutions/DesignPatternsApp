@@ -93,13 +93,14 @@ namespace DesignPatternsApp.Controllers
         IStepBuilderFactory<Person> stepBuilderFactory2 = new SimpleStepBuilderFactory<Person>();
         // ana yapımızı dışarıdan kullanılan bir adapter sınıfı ile çalıştırdık genel yapımızı bozmadan
         var reader1 = new ExternalCsvItemReaderAdapter<Person>("persons.csv");
+        var reader2 = new CsvItemReader<Person>("persons.csv");
         var processor1 = new PersonItemProcessor();
         var writer1 = new XMLItemWriter<Person>("persons.xml");
 
         // Fault Tolerant Step
         IStep personStep = stepBuilderFactory2
           .CreateStep("personStep")
-          .Reader(reader1)
+          .Reader(reader2)
           .Processor(processor1)
           .Writer(writer1)
           .FaultTolerant()
